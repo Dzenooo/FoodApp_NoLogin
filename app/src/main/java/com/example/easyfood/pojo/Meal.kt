@@ -1,6 +1,7 @@
 package com.example.easyfood.pojo
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "mealInformation")
@@ -59,4 +60,7 @@ data class Meal(
     val strSource: String?,
     val strTags: String?,
     val strYoutube: String?
+
+
+
 )

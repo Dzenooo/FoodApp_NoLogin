@@ -6,6 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.easyfood.db.MealDatabase
+import com.example.easyfood.pojo.FavoriteMeal
 import com.example.easyfood.pojo.Meal
 import com.example.easyfood.pojo.MealList
 import com.example.easyfood.retrofit.RetrofitInstance
@@ -19,6 +20,7 @@ class MealViewModel(
 ):ViewModel() {
 
     private var mealDetailLiveData = MutableLiveData<Meal>()
+    private val favoriteMealsLiveDataPerUser = MutableLiveData<List<Meal>>()
 
 
     fun getMealDetail(id:String){
@@ -37,7 +39,25 @@ class MealViewModel(
 
         })
     }
+    fun loadFavoriteMealsForUser(userId: Int) {
+        viewModelScope.launch {
+            val favorites = mealDatabase.favoriteMealsDao().getFavoriteMealsForUser(userId)
+            Log.d("Favorites", "Loaded ${favorites.size} favorites for user $userId")
+            favoriteMealsLiveDataPerUser.postValue(favorites)
+        }
+    }
 
+    fun addFavoriteForUser(userId: Int, meal: Meal) = viewModelScope.launch {
+        mealDatabase.mealDao().upsertMeal(meal)
+        mealDatabase.favoriteMealsDao().addFavorite(FavoriteMeal(userId, meal.idMeal))
+        loadFavoriteMealsForUser(userId)
+    }
+
+
+
+
+
+    fun observeFavoriteMealsLiveDataPerUser(): LiveData<List<Meal>> = favoriteMealsLiveDataPerUser
     fun observerMealDetailsLiveData():LiveData<Meal>{
         return mealDetailLiveData
     }

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.easyfood.db.MealDatabase
 import com.example.easyfood.pojo.Category
 import com.example.easyfood.pojo.CategoryList
+import com.example.easyfood.pojo.FavoriteMeal
 import com.example.easyfood.pojo.MealsByCategoryList
 import com.example.easyfood.pojo.MealsByCategory
 import com.example.easyfood.pojo.Meal
@@ -28,6 +29,7 @@ class HomeViewModel(
     private var favoriteMealsLiveData = mealDatabase.mealDao().getAllMeals()
     private var bottomSheetMealLiveData = MutableLiveData<Meal>()
     private var searchedMealsLiveData = MutableLiveData<List<Meal>>()
+    private val favoriteMealsLiveDataPerUser = MutableLiveData<List<Meal>>()
 
     fun getRandomMeal(){
         RetrofitInstance.api.getRandomMeal().enqueue(object : Callback<MealList> {
@@ -104,16 +106,8 @@ class HomeViewModel(
 
         })
     }
-    fun insertMeal(meal: Meal){
-        viewModelScope.launch {
-            mealDatabase.mealDao().upsertMeal(meal)
-        }
-    }
-    fun deleteMeal(meal: Meal){
-        viewModelScope.launch {
-            mealDatabase.mealDao().delete(meal)
-        }
-    }
+
+
 
     fun searchMeals(searchQuery:String) = RetrofitInstance.api.searchMeals(searchQuery).enqueue(
         object : Callback<MealList>{
@@ -138,6 +132,33 @@ class HomeViewModel(
         }
     )
 
+    fun loadFavoriteMealsForUser(userId: Int) {
+        viewModelScope.launch {
+            val favorites = mealDatabase.favoriteMealsDao().getFavoriteMealsForUser(userId)
+            Log.d("Favorites", "Loaded ${favorites.size} favorites for user $userId")
+            favoriteMealsLiveDataPerUser.postValue(favorites)
+        }
+    }
+    fun addFavoriteForUser(userId: Int, meal: Meal) = viewModelScope.launch {
+        mealDatabase.mealDao().upsertMeal(meal)
+        mealDatabase.favoriteMealsDao().addFavorite(FavoriteMeal(userId, meal.idMeal))
+        loadFavoriteMealsForUser(userId)
+    }
+
+    fun deleteFavoriteForUser(userId: Int, mealId: String) = viewModelScope.launch {
+        Log.d("HomeViewModel", "🔥 deleteFavoriteForUser called for user=$userId, meal=$mealId")
+        mealDatabase.favoriteMealsDao().deleteFavorite(userId, mealId)
+
+        loadFavoriteMealsForUser(userId)
+    }
+
+
+
+    // Replace your MutableLiveData + manual load entirely:
+    fun observeFavoritesForUser(userId: Int): LiveData<List<Meal>> =
+        mealDatabase.favoriteMealsDao().getFavoriteMealsForUserLive(userId)
+
+
     fun observeSearchedMealsLiveData() : LiveData<List<Meal>> = searchedMealsLiveData
 
     fun observeRandomMealLiveData():LiveData<Meal>{
@@ -152,9 +173,7 @@ class HomeViewModel(
         return categoriesLiveData
     }
 
-    fun observeFavoriteMealsLiveData(): LiveData<List<Meal>>{
-        return favoriteMealsLiveData
-    }
+
 
     fun observeBottomSheetMeal() : LiveData<Meal> = bottomSheetMealLiveData
 }

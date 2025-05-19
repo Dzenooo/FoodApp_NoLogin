@@ -13,6 +13,7 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.bumptech.glide.Glide
 import com.example.easyfood.R
+import com.example.easyfood.UserSessionManager
 import com.example.easyfood.databinding.ActivityMealBinding
 import com.example.easyfood.db.MealDatabase
 import com.example.easyfood.fragments.HomeFragment
@@ -20,6 +21,7 @@ import com.example.easyfood.pojo.Meal
 import com.example.easyfood.viewModel.HomeViewModel
 import com.example.easyfood.viewModel.MealViewModel
 import com.example.easyfood.viewModel.MealViewModelFactory
+import com.example.easyfood.viewModel.SharedUserViewModel
 
 class MealActivity : AppCompatActivity() {
 
@@ -33,6 +35,10 @@ class MealActivity : AppCompatActivity() {
 
     private lateinit var youtubeLink:String
 
+    private val userViewModel: SharedUserViewModel by lazy {
+        ViewModelProvider(this).get(SharedUserViewModel::class.java)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -42,7 +48,7 @@ class MealActivity : AppCompatActivity() {
         val mealDatabase = MealDatabase.getInstance(this)
         val viewModelFactory = MealViewModelFactory(mealDatabase)
         mealMvvm = ViewModelProvider(this, viewModelFactory).get(MealViewModel::class.java)
-      // mealMvvm = ViewModelProvider(this).get(MealViewModel::class.java)
+
         getMealInformationFromIntent()
 
         setInformationInViews()
@@ -57,11 +63,20 @@ class MealActivity : AppCompatActivity() {
     }
 
     private fun onFavoriteClick() {
-
         binding.buttonFavorites.setOnClickListener {
-            mealToSave?.let {
-                mealMvvm.insertMeal(mealToSave!!)
-                Toast.makeText(this, "Meal saved", Toast.LENGTH_SHORT).show()
+            val userIdFromViewModel = userViewModel.loggedInUser.value?.id
+            val userIdFromSession = UserSessionManager.getLoggedInUserId(this).takeIf { it != -1 }
+
+            val userId = userIdFromViewModel ?: userIdFromSession
+
+            if (userId == null) {
+                Toast.makeText(this, "Please log in to save favorites", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            mealToSave?.let { meal ->
+                mealMvvm.addFavoriteForUser(userId, meal)
+                Toast.makeText(this, "Meal saved to your favorites", Toast.LENGTH_SHORT).show()
             }
         }
 
